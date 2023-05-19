@@ -1,5 +1,5 @@
 ## Explication de l'architecture
-
+NB: L'API de FlightRadarAPI24 n'existe plus je crois. Parce que, malgré que j'ai souscris à la période d'essai, j'ai pu avoir d'access key. J'ai donc recouru a une autre API ; celui-ci :  https://aviationstack.com/documentation ;pour réaliser le test.
 #### Schéma de l'architecture
 
 [Architecture ETL FLights EXALT IT](media-assets/Architecture_ETL_Flights_ExaltIT.png "Architecture ETL FLights EXALT IT")
