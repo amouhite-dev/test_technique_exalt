@@ -1,76 +1,88 @@
-# FlightRadar24
+## Explication de l'architecture
 
-# Sujet
+#### Schéma de l'architecture
 
+[Architecture ETL FLights EXALT IT](media-assets/Architecture_ETL_Flights_ExaltIT.png "Architecture ETL FLights EXALT IT")
 
-Créer un pipeline ETL (Extract, Transform, Load) permettant de traiter les données de l'API [flightradar24](https://www.flightradar24.com/), qui répertorie l'ensemble des vols aériens, aéroports, compagnies aériennes mondiales.
+#### Explication générale de l'architecture
 
-> En python, cette librairie: https://github.com/JeanExtreme002/FlightRadarAPI facilite l'utilisation de l'API.
+Concernant cet architecture, nous sommes sur un ETL qui tournera sur Docker.
 
-## Résultats
+Le dockerfile contiendra, l'image de AIRFLOW par exemple apache/apache/airflow:2.3.0. 
+Comme exemple de dockerfile nous pouvons avoir celui-ci:
 
-Ce pipeline doit permettre de fournir les indicateurs suivants:
-1. La compagnie avec le + de vols en cours
-2. Pour chaque continent, la compagnie avec le + de vols régionaux actifs (continent d'origine == continent de destination)
-3. Le vol en cours avec le trajet le plus long
-4. Pour chaque continent, la longueur de vol moyenne
-5. L'entreprise constructeur d'avions avec le plus de vols actifs
-6. Pour chaque pays de compagnie aérienne, le top 3 des modèles d'avion en usage
+    FROM apache/airflow:2.3.0
+    ARG AIRFLOW_USER_HOME=/opt/airflow
+    ENV PYTHONPATH=$PYTHONPATH:${AIRFLOW_USER_HOME}
 
-## Industrialisation
+    USER airflow
 
-Ce kata est orienté **industrialisation**. Le pipeline ETL doit être pensé comme un job se faisant éxécuter à échéance régulière (ex: toutes les 2 heures).
+    COPY . ${AIRFLOW_USER_HOME}
 
-Le job doit donc être
-* **fault-tolerant**: Un corner-case pas couvert ou une donnée corrompue ne doivent pas causer l'arret du job.
-* **observable**: En loggant les informations pertinantes
-* **systématique**: conserver les données & résultats dans un mécanisme de stockage, en adoptant une nomencalture adaptée permettant aux _data analyst_ en aval de retrouver les valeurs recherchées pour un couple `(Date, Heure)` donné.
+    RUN pip install -r requirements.txt 
 
+Le premier docker-compose contiendra tout les service de AIrflow et le second ceux de Kafka
+NB: Le requirements.txt, contiendra tout les libraires dont ont a besoin pour lancer notre projet sur docker
 
-## ⚠️ Candidatures ⚠️
+Dans notre environmment Airflow, nous allons créé un DAG qui va tourner tout les 2 heures. 
+Ex:
 
+    # initialization of the default arguments of a DAG
+    default_args = {
+        'owner' : 'madebo',
+        'start_date' : datetime(2022,10,19),
+        'retries' : 5,
+        'retry_delay' : timedelta(minutes=5),
+        'email': ['amouhite2002@gmail.com'],
+        'email_on_failure': False,
+        'email_on_retry': False,
+    }
 
-> Le kata laisse volontairement beaucoup de liberté. Il y a une grande marge de progression entre un “MVP” et une implémentation “parfaite”. Au candidat de choisir sur quelles exigences mettre le focus dans son rendu.
+    # defined the DAG
+    dag = DAG (
+        'etl-flight-by-hour',
+        default_args=default_args, 
+        description = 'DAG devant extraire des vols chaque 2h sur l'API de aviationstack',
+        schedule_interval= '0 */2 * * *',
+        catchup=False
+    )
 
-> Le rendu MVP implémente au moins 4 des questions de l'énoncé, assorti d'un Readme expliquant la démarche choisie
+    with dag:
+        starter_op = DummyOperator(task_id = "Start_crawling_professions_directories")
+    
+        extraction_op = PythonOperator(
+            task_id='extraction',
+            python_callable=<nom de la function_extraction>,
+            dag=dag,
+        )  
 
-> A défaut d'implémenter tout le pipeline, proposez dans le README **un exemple d'architecture idéal de votre application industrialisée**(dans un environnement de PROD) sans avoir besoin de l'implémenter (ex: ordonnancement, monitoring, data modeling, etc.)
+        transformation_op = PythonOperator(
+            task_id='transformation',
+            python_callable=<nom de la function_transformation>,
+            dag=dag,
+        )  
 
-> Pour faire ce schéma, https://www.diagrams.net/ ou https://excalidraw.com/ sont vos amis :)
+        save_data_op = PythonOperator(
+            task_id='save_data',
+            python_callable=<nom de la function_save_data>,
+            dag=dag,
+        )  
+        
+    extraction_op >> transformation_op >> save_data_op
+        
 
-> **Pour le rendu, Poussez sur une nouvelle branche git, ouvrez une merge request vers Main, et notifiez votre interlocuteur par message que le kata est fini.
+Ensuite j'ai rajouter Kafka qui lui permettra d'alimenter une API, créé avec django (librairie DRF) en temps réel. Cet API sera une API utiliser par les data analyst pour faire du reporting par exemple.
 
-![flightradarimage](media-assets/flightradar.png)
+Kafka envoie mes données en produisant un méssage dans le brocker en passant par le  topics qui lui à été assigné. Le brocker Kafka sera aussi appeler par le consumer Kafka pour consommer le message envoyer dans le brocker à travers le topics qu'on lui a assigner. C'est ainsi que l'API est ainsi alimenter en temps réel.
 
+Tout ce procéder sera monitorer avec promethus, afin de surveiller l'exécution du pipeline.
 
-# Contexte & motivation derrière le kata
+#### Explication Particulière
 
+1. **Base de données**
+Pour la base de données, j'ai choisi une base de données NoSQL, parce que nous recevons à près de 99% de nouvelle données a chaque extraction et ces derniers n'ont pas souvent le même format.
+Deplus, étant donnés qu'il est évolutive, il pourra facilement gérer le grand volume de données qu'il recevra au bout de 1mois par exemple (tout cela parce qu'on fait l'xtraction chaque 2h, avec 99% de chance d'avoir de nouvelle données)
+Contrairement à celui du base de données SQL, les requêtes pourront être rapide, vue qu'on serait améné a récupérer un grand volume de données à chaque requête.
 
-Un data engineer doit être capable de concevoir un pipeline de données pour gérer un flux important et en tirer des informations pertinentes. 
-
- 
-
-En tant que data engineer, il est important de pouvoir **explorer & comprendre le dataset qu’on manipule** pour proposer les Vues adaptées au différents use-cases, et effectuer le data-cleaning nécessaire. 
-
-https://www.flightradar24.com/ est une API fournissant des informations **en temps réel** sur le traffic aérien mondial. De ce fait, les informations qu'elle renvoie changent en parmanence. Pour en tirer des informations utiles, son traitement doit donc **doit être répété régulièrement**. Pour des raisons d'efficacité, on cherche donc à transformer ce pipeline ETL en **un job ne requérant pas d'intervention humaine.**
-
-
-# Specification [RFC2119](https://microformats.org/wiki/rfc-2119-fr) du kata
-
-
-* Un grand pouvoir implique de grandes responsabilités. Vos choix `DOIVENT` être justifiés dans un Readme. 
-
-* L'extraction des données `PEUT` être faite dans le format de votre choix. CSV, Parquet, AVRO, ... celui qu'il vous semble le plus adapté
-
-* Votre pipeline `DOIT` inclure une phase de [data cleaning](https://fr.wikipedia.org/wiki/Nettoyage_de_donn%C3%A9es)
-
-* Le rendu `PEUT` comporter un Jupyter notebook avec les résultats
-
-* votre pipeline `DEVRAIT` utiliser Apache Spark et l'API DataFrame
-
-* votre pipeline `DEVRAIT` stocker les données dans un dossier avec une nomenclature horodatée. Ex: `Flights/rawzone/tech_year=2023/tech_month=2023-07/tech_day=2023-07-16/flights2023071619203001.csv`
-
-
-
-
-> Questions Bonus: Quel aéroport a la plus grande différence entre le nombre de vol sortant et le nombre de vols entrants ?
+2. **Monitoring**
+J'ai choisi promethus, parce que c'est un outils qui facile à intégrer et aussi pour son systeme d'alerte intégrer , qui permet d'être prévenu vers diverses destinations.
