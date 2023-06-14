@@ -1,0 +1,7 @@
+# MongoGUI
+# ------------------------------------------------------------------------------
+ME_CONFIG_MONGODB_ADMINUSERNAME=debug
+ME_CONFIG_MONGODB_ADMINPASSWORD=debug
+ME_CONFIG_MONGODB_URL=mongodb://debug:debug@mongo:27017/
+ME_CONFIG_BASICAUTH_USERNAME=debug
+ME_CONFIG_BASICAUTH_PASSWORD=debug

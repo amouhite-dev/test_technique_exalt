@@ -1,0 +1,5 @@
+# MongoDB
+# ------------------------------------------------------------------------------
+MONGO_INITDB_ROOT_USERNAME=debug
+MONGO_INITDB_ROOT_PASSWORD=debug
+MONGO_INITDB_DATABASE=flights_db

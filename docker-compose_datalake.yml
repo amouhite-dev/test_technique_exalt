@@ -1,0 +1,38 @@
+version: '3.1'
+
+volumes:
+  opendata_mongo_data:
+
+services:
+
+  mongo:
+    image: mongo:5.0.5
+    env_file:
+      - ./.envs/.local/.mongo
+    volumes:
+      - opendata_mongo_data:/data/db
+    ports:
+      - "2701:27017"
+    mem_limit: 5G
+    cpus: 1
+    restart: unless-stopped
+    networks:
+      - airflow-spark-network
+
+  mongogui:
+    image: mongo-express
+    env_file:
+      - ./.envs/.local/.mongogui
+    depends_on:
+      - mongo
+    ports:
+      - 808:8081
+    mem_limit: 512M
+    cpus: 0.5
+    restart: unless-stopped
+    networks:
+      - airflow-spark-network
+
+networks:
+  airflow-spark-network:
+    driver: bridge

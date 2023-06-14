@@ -1,0 +1,17 @@
+lxml
+python-decouple
+apache-airflow-providers-apache-spark
+json5
+python-slugify
+pytz
+requests
+openpyxl
+python-dotenv
+sqlalchemy<2.0
+pymongo
+python-decouple
+pytz
+pandas
+pyarrow
+minio
+python-dotenv
