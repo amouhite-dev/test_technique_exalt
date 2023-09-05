@@ -138,6 +138,7 @@ def create_parquet_file_if_not_exist(df, category_data, type_data, type_file="pa
 def save_data_in_file(df: DataFrame, category_data:str, type_data='flights', type_file='parquet') -> None:
     path_file = create_parquet_file_if_not_exist(df, category_data, type_data, type_file)
     df.toPandas().to_parquet(path_file, engine='pyarrow', compression="gzip")
+    # df.write.mode('overwrite').parquet(path_file)
     
     print(f"Data of {type_data} in category {category_data} is save with success")
     logging.info(f"Data of {type_data} in category {category_data} is save with success")

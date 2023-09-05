@@ -13,6 +13,7 @@ from utils.commons import  (
 )
 
 from pyspark.sql import DataFrame
+# import pyspark.sql.functions as func
 from pyspark.sql.functions import (
     count, 
     when, 
@@ -22,6 +23,7 @@ from pyspark.sql.functions import (
     to_timestamp, 
     from_unixtime
 )
+
 
 class TreatmentData:
 
@@ -171,7 +173,7 @@ class TreatmentData:
         # data_extracted = get_last_parquet_file(self.directory)
         
         # df = spark.read.parquet(data_extracted)
-        
+        df.transform(self.describe_dataframe)
         self.describe_dataframe(df)
         
         df = self.define_type_column_dataframe(df)

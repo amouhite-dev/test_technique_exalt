@@ -85,7 +85,7 @@ class RequestData:
         try:      
             # get by filter flights actif or other(never take scheduled flights) and departure_continent == arrival_continent
             regional_flights = df.filter((col("departure_continent") == col("arrival_continent")) & (col("flight_status") != "scheduled"))
-            
+            regional_flights.cache()
             # if regional_flights is empty, I take all flights with only this condition : departure_continent == arrival_continent
             if regional_flights.count() <= 0:
                 print("I can not get airline with the most regional flights active and departure_continent = arrival_continent")
@@ -107,7 +107,8 @@ class RequestData:
             # Group data by "departure_continent" and collect values "max_flight" corresponding
             max_regional_flights_by_continent = max_regional_flights_by_continent.groupBy("departure_continent", "max_flight") \
                     .agg(collect_list("airline_name").alias("airline_names"))
-            
+                    
+            regional_flights.unpersist()
             return logger_message(
                 max_regional_flights_by_continent,
                 "[REQUEST] -> Airline with the most regional flights by continent version 1 is done."
@@ -160,12 +161,13 @@ class RequestData:
         number, arrival and departure airports, and scheduled departure and arrival times. The function
         also logs a message indicating whether it has completed successfully or if there was an error.
         """
+        # df.cache()
         try:
             # Found max duration
-            max_duration = df.agg(max("duration").alias("max_duration")).select("max_duration").first()[0]
-
-            flights_with_max_duration = df.filter(col('duration') == max_duration).select("duration_in_hour", "flight_number", "arrival_airport", 'departure_airport', "departure_scheduled", "arrival_scheduled")
-
+            # max_duration = df.agg(max("duration").alias("max_duration")).select("max_duration").first()[0]
+        
+            flights_with_max_duration = df.withColumn("max_duration", max("duration")).filter(col('max_duration') == col("duration")).select("duration_in_hour", "flight_number", "arrival_airport", 'departure_airport', "departure_scheduled", "arrival_scheduled")
+            # df.unpersist()
             return logger_message(
                 flights_with_max_duration,
                 "[REQUEST] -> Flights with max duration is done."
@@ -176,6 +178,7 @@ class RequestData:
                 f"Error to get flights with max duration. See function get_flights_with_max_duration. See error : {e}",
                 "error"
             )
+        
 
     def get_average_flight_duration(self, df: DataFrame) -> None:
         """
@@ -270,7 +273,8 @@ class RequestData:
         logs the error message.
         """
         try:
-            if df['aircraft'].isNull() | isnan(df['aircraft']) :
+            aircraft_exist = df.where(col('aircraft').isNull()).count()
+            if not aircraft_exist:
                 print("I can not retrieve top 3 airplanes used by country")
                 logging.info("I can not retrieve top 3 airplanes used by country")
                 return self.spark.emptyDataFrame

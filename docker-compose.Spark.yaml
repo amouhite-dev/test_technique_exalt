@@ -23,6 +23,7 @@ services:
       - ./etl:/opt/bitnami/spark/etl
       - ./database:/opt/bitnami/spark/database
       - ./utils:/opt/bitnami/spark/utils
+      - ./Flights:/opt/bitnami/spark/Flights
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
